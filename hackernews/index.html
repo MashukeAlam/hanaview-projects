@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Hackernews by HanaView</title>
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <script type="module">
+      import { mount, val, ref } from "./hv.js";
+
+      function timeAgo(timestamp) {
+        const now = new Date();
+        const timeDifference = now - new Date(timestamp * 1000); // convert seconds to milliseconds
+
+        const seconds = Math.floor(timeDifference / 1000);
+        const minutes = Math.floor(seconds / 60);
+        const hours = Math.floor(minutes / 60);
+        const days = Math.floor(hours / 24);
+
+        if (seconds < 60) {
+          return `${seconds} seconds ago`;
+        } else if (minutes < 60) {
+          return `${minutes} minutes ago`;
+        } else if (hours < 24) {
+          return `${hours} hours ago`;
+        } else {
+          return `${days} days ago`;
+        }
+      }
+
+      function fetchTopStories() {
+        return fetch(
+          "https://hacker-news.firebaseio.com/v0/topstories.json?print=pretty"
+        )
+          .then((response) => response.json())
+          .then((storyIds) => storyIds.slice(0, 30));
+      }
+
+      function fetchStoryDetails(id) {
+        return fetch(
+          `https://hacker-news.firebaseio.com/v0/item/${id}.json?print=pretty`
+        ).then((response) => response.json());
+      }
+
+      function NewsItem({ id, title, url, score, by, time, kids }) {
+        return {
+          tag: "li",
+          attributes: { class: "border-b bg-gray-100 px-2 py-1" },
+          children: [
+          {
+              tag: "p",
+              text: `${id}.`,
+              attributes: { class: "inline text-gray-400 py-1" },
+            },
+            {
+              tag: "a",
+              text: title,
+              attributes: {
+                href: url,
+                class: "font-bold text-gray-500",
+                target: "_blank",
+              },
+            },
+            {
+              tag: "p",
+              text: `${score} points by ${by} | ${timeAgo(time)} | ${
+                kids && kids.length
+              } comments`,
+              attributes: { class: "text-sm text-gray-400" },
+            },
+          ],
+        };
+      }
+
+      function NewsList() {
+        const [stories, setStories] = val([]);
+        const loadingRef = ref(false);
+
+        if (stories.length === 0) {
+          fetchTopStories().then((storyIds) => {
+            Promise.all(storyIds.map((id) => fetchStoryDetails(id))).then(
+              (fetchedStories) => {
+                setStories(fetchedStories);
+              }
+            );
+          });
+        }
+
+        return {
+          tag: "div",
+          attributes: { class: "my-2 mx-10" },
+          children: [
+            {
+              tag: "h1",
+              text: "Hacker News",
+              attributes: { class: "text-xl font-semibold bg-orange-500 px-3" },
+            },
+            {
+              tag: "ul",
+              attributes: { class: "" },
+              children: stories.map((story, idx) => NewsItem({...story, id: idx + 1})),
+            },
+          ],
+        };
+      }
+
+      const root = document.getElementById("root");
+      mount(NewsList, root);
+    </script>
+  </body>
+</html>
